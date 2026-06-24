@@ -6,6 +6,9 @@ import { applyPortalChromeMarks } from "@/lib/pwa/portal-chrome";
 export function PwaProvider() {
   useLayoutEffect(() => {
     applyPortalChromeMarks();
+    requestAnimationFrame(() => {
+      applyPortalChromeMarks();
+    });
 
     const handleResume = () => {
       applyPortalChromeMarks();

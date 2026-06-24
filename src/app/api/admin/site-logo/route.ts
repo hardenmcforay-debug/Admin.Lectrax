@@ -8,6 +8,8 @@ import {
   getSiteLogoSetting,
   isAllowedBrandingImage,
 } from "@/lib/landing/site-branding";
+import { sanitizeErrorMessage } from "@/lib/errors/classify";
+import { brandingExtensionMatchesMime } from "@/lib/security/file-validation";
 
 export async function POST(request: Request) {
   const auth = await requirePlatformAdmin();
@@ -24,6 +26,13 @@ export async function POST(request: Request) {
   if (!isAllowedBrandingImage(file)) {
     return NextResponse.json(
       { error: "Upload a JPEG, PNG, WebP, GIF, or SVG image up to 5 MB." },
+      { status: 400 }
+    );
+  }
+
+  if (!brandingExtensionMatchesMime(file)) {
+    return NextResponse.json(
+      { error: "File extension does not match the image type." },
       { status: 400 }
     );
   }
@@ -51,7 +60,7 @@ export async function POST(request: Request) {
 
   if (uploadError) {
     return NextResponse.json(
-      { error: uploadError.message ?? "Could not upload logo." },
+      { error: sanitizeErrorMessage(uploadError.message ?? "Could not upload logo.") },
       { status: 500 }
     );
   }
@@ -69,7 +78,7 @@ export async function POST(request: Request) {
 
   if (settingsError) {
     return NextResponse.json(
-      { error: settingsError.message ?? "Logo uploaded but settings could not be saved." },
+      { error: sanitizeErrorMessage(settingsError.message ?? "Logo uploaded but settings could not be saved.") },
       { status: 500 }
     );
   }
@@ -96,7 +105,7 @@ export async function DELETE() {
 
   if (error) {
     return NextResponse.json(
-      { error: error.message ?? "Could not remove logo." },
+      { error: sanitizeErrorMessage(error.message ?? "Could not remove logo.") },
       { status: 500 }
     );
   }

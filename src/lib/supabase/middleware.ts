@@ -1,7 +1,12 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import type { UserRole } from "@/types/database";
-import { AUTH_ROUTES, PUBLIC_API_ROUTES, PUBLIC_ROUTES } from "@/lib/constants";
+import {
+  AUTH_ROUTES,
+  isPublicAuthApiRoute,
+  PUBLIC_API_ROUTES,
+  PUBLIC_ROUTES,
+} from "@/lib/constants";
 import {
   getAdminAppUrl,
   getPlatformAdminLoginRedirectUrl,
@@ -18,6 +23,7 @@ import {
   isTransientDbError,
 } from "@/lib/errors/classify";
 import { getPublicSupabaseEnv } from "@/lib/env";
+import { withSecureCookieOptions } from "@/lib/security/cookies";
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
@@ -55,7 +61,7 @@ export async function updateSession(request: NextRequest) {
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
           supabaseResponse = NextResponse.next({ request });
           cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
+            supabaseResponse.cookies.set(name, value, withSecureCookieOptions(options))
           );
           Object.entries(headers).forEach(([key, value]) => {
             supabaseResponse.headers.set(key, value);
@@ -66,6 +72,30 @@ export async function updateSession(request: NextRequest) {
   );
 
   const pathname = request.nextUrl.pathname;
+
+  if (pathname === "/reset-password") {
+    return supabaseResponse;
+  }
+
+  const recoveryType = request.nextUrl.searchParams.get("type");
+  if (
+    (pathname === "/login" || pathname === "/") &&
+    (recoveryType === "recovery" || request.nextUrl.searchParams.has("token_hash"))
+  ) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/reset-password";
+    return NextResponse.redirect(url);
+  }
+
+  if (
+    pathname === "/login" &&
+    request.nextUrl.searchParams.has("code") &&
+    request.nextUrl.searchParams.get("next") === "/reset-password"
+  ) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/reset-password";
+    return NextResponse.redirect(url);
+  }
 
   if (isAdminHostedSeparately() && !isAdminDeployment()) {
     if (pathname.startsWith("/admin") || pathname.startsWith("/api/admin")) {
@@ -79,6 +109,7 @@ export async function updateSession(request: NextRequest) {
   const isPublic =
     PUBLIC_ROUTES.some((r) => pathname === r || pathname.startsWith(r + "/")) ||
     PUBLIC_API_ROUTES.some((r) => pathname === r) ||
+    isPublicAuthApiRoute(pathname) ||
     pathname.startsWith("/api/webhooks") ||
     pathname.startsWith("/api/cron");
 
@@ -133,7 +164,7 @@ export async function updateSession(request: NextRequest) {
       if (profileError && isTransientDbError(profileError)) {
         roleServiceUnavailable = true;
       } else {
-        role = resolveUserRoleOrNull(profile?.role, user);
+        role = resolveUserRoleOrNull(profile?.role);
       }
     }
 
