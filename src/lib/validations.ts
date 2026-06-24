@@ -39,7 +39,7 @@ export const loginIdentifierField = z
   );
 
 export const loginSchema = z.object({
-  identifier: loginIdentifierField,
+  email: emailField,
   password: passwordField(6, "Password must be at least 6 characters"),
 });
 
