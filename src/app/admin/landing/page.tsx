@@ -19,11 +19,11 @@ export default async function AdminLandingPage() {
   ]);
 
   const heroImageUrl = heroSetting?.storage_path
-    ? buildLandingAssetPublicUrl(heroSetting.storage_path)
+    ? buildLandingAssetPublicUrl(heroSetting.storage_path, heroSetting.updated_at)
     : null;
 
   const logoUrl = logoSetting?.storage_path
-    ? buildLandingAssetPublicUrl(logoSetting.storage_path)
+    ? buildLandingAssetPublicUrl(logoSetting.storage_path, logoSetting.updated_at)
     : null;
 
   const featureImages = LANDING_FEATURE_CARDS.reduce(
@@ -31,7 +31,7 @@ export default async function AdminLandingPage() {
       const setting = featureCardSettings[card.id];
       acc[card.id] = {
         imageUrl: setting?.storage_path
-          ? buildLandingAssetPublicUrl(setting.storage_path)
+          ? buildLandingAssetPublicUrl(setting.storage_path, setting.updated_at)
           : card.defaultImage,
         isCustom: Boolean(setting?.storage_path),
         updatedAt: setting?.updated_at ?? null,
