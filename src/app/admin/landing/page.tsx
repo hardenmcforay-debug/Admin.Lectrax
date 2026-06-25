@@ -55,7 +55,9 @@ export default async function AdminLandingPage() {
           aria-label="Landing page sections"
           className="rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm text-slate-700"
         >
-          <p className="font-medium text-slate-900">This page has three upload areas:</p>
+          <p className="font-medium text-slate-900">
+            This page has three upload areas (logo, hero, and six feature cards):
+          </p>
           <ol className="mt-2 list-decimal space-y-1 pl-5">
             <li>
               <a href="#site-logo" className="text-primary underline-offset-2 hover:underline">
