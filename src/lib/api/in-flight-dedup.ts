@@ -11,13 +11,15 @@ export function dedupeInFlightGetRequest(
 ): Promise<Response> {
   const existing = inFlightGetRequests.get(key);
   if (existing) {
-    return existing;
+    return existing.then((response) => response.clone());
   }
 
-  const promise = execute().finally(() => {
+  const promise = execute();
+  inFlightGetRequests.set(key, promise);
+
+  promise.finally(() => {
     inFlightGetRequests.delete(key);
   });
 
-  inFlightGetRequests.set(key, promise);
-  return promise;
+  return promise.then((response) => response.clone());
 }
