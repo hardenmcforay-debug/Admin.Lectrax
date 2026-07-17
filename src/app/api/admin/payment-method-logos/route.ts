@@ -1,17 +1,19 @@
 import { NextResponse } from "next/server";
 import { requirePlatformAdmin } from "@/lib/admin/require-platform-admin";
-import { isFeatureCardId } from "@/lib/landing/feature-cards";
 import {
   LANDING_ASSETS_BUCKET,
-  LANDING_FEATURE_CARDS_SETTING_KEY,
   BRANDING_ASSET_CACHE_CONTROL,
-  buildFeatureCardStoragePath,
   extensionForImageMime,
-  getLandingFeatureCardsSetting,
   isAllowedBrandingImage,
-  type LandingFeatureCardsSetting,
   type BrandingImageSetting,
 } from "@/lib/landing/site-branding";
+import {
+  PAYMENT_METHOD_LOGOS_SETTING_KEY,
+  buildPaymentMethodLogoStoragePath,
+  getPaymentMethodLogosSetting,
+  isPaymentMethodLogoId,
+  type PaymentMethodLogosSetting,
+} from "@/lib/subscription/payment-method-logos";
 import { sanitizeErrorMessage } from "@/lib/errors/classify";
 import { brandingExtensionMatchesMime, readBrandingFileBytes } from "@/lib/security/file-validation";
 import { logPlatformAdminAudit } from "@/lib/admin/platform-admin-audit";
@@ -21,17 +23,17 @@ type AdminSupabase = Extract<
   { supabase: unknown }
 >["supabase"];
 
-async function saveFeatureCardsSetting(
+async function savePaymentMethodLogosSetting(
   supabase: AdminSupabase,
   userId: string,
-  cards: Record<string, BrandingImageSetting>
+  logos: Record<string, BrandingImageSetting>
 ) {
   const updatedAt = new Date().toISOString();
-  const value: LandingFeatureCardsSetting = { cards };
+  const value: PaymentMethodLogosSetting = { logos };
 
   const { error } = await supabase.from("site_settings").upsert(
     {
-      key: LANDING_FEATURE_CARDS_SETTING_KEY,
+      key: PAYMENT_METHOD_LOGOS_SETTING_KEY,
       value,
       updated_at: updatedAt,
       updated_by: userId,
@@ -49,19 +51,19 @@ export async function POST(request: Request) {
   const { supabase, userId } = auth;
   const formData = await request.formData();
   const file = formData.get("file");
-  const cardId = formData.get("cardId");
+  const methodId = formData.get("methodId");
 
-  if (typeof cardId !== "string" || !isFeatureCardId(cardId)) {
-    return NextResponse.json({ error: "A valid feature card is required." }, { status: 400 });
+  if (typeof methodId !== "string" || !isPaymentMethodLogoId(methodId)) {
+    return NextResponse.json({ error: "A valid payment method is required." }, { status: 400 });
   }
 
   if (!(file instanceof File)) {
-    return NextResponse.json({ error: "Image file is required." }, { status: 400 });
+    return NextResponse.json({ error: "Logo image is required." }, { status: 400 });
   }
 
   if (!isAllowedBrandingImage(file)) {
     return NextResponse.json(
-      { error: "Upload a JPEG, PNG, WebP, or GIF image up to 5 MB." },
+      { error: "Upload a JPEG, PNG, WebP, GIF, or SVG image up to 5 MB." },
       { status: 400 }
     );
   }
@@ -84,9 +86,9 @@ export async function POST(request: Request) {
   }
 
   const version = Date.now();
-  const storagePath = buildFeatureCardStoragePath(cardId, ext, version);
-  const existingCards = await getLandingFeatureCardsSetting();
-  const previous = existingCards[cardId];
+  const storagePath = buildPaymentMethodLogoStoragePath(methodId, ext, version);
+  const existingLogos = await getPaymentMethodLogosSetting();
+  const previous = existingLogos[methodId];
 
   if (previous?.storage_path) {
     await supabase.storage.from(LANDING_ASSETS_BUCKET).remove([previous.storage_path]);
@@ -103,28 +105,28 @@ export async function POST(request: Request) {
 
   if (uploadError) {
     return NextResponse.json(
-      { error: sanitizeErrorMessage(uploadError.message ?? "Could not upload image.") },
+      { error: sanitizeErrorMessage(uploadError.message ?? "Could not upload logo.") },
       { status: 500 }
     );
   }
 
-  const cardUpdatedAt = new Date().toISOString();
-  const nextCards = {
-    ...existingCards,
-    [cardId]: { storage_path: storagePath, updated_at: cardUpdatedAt },
+  const logoUpdatedAt = new Date().toISOString();
+  const nextLogos = {
+    ...existingLogos,
+    [methodId]: { storage_path: storagePath, updated_at: logoUpdatedAt },
   };
 
-  const { error: settingsError, updatedAt } = await saveFeatureCardsSetting(
+  const { error: settingsError, updatedAt } = await savePaymentMethodLogosSetting(
     supabase,
     userId,
-    nextCards
+    nextLogos
   );
 
   if (settingsError) {
     return NextResponse.json(
       {
         error: sanitizeErrorMessage(
-          settingsError.message ?? "Image uploaded but settings could not be saved."
+          settingsError.message ?? "Logo uploaded but settings could not be saved."
         ),
       },
       { status: 500 }
@@ -133,18 +135,18 @@ export async function POST(request: Request) {
 
   await logPlatformAdminAudit({
     actorId: userId,
-    action: "landing_feature_card_uploaded",
+    action: "payment_method_logo_uploaded",
     entityType: "site_settings",
-    entityId: cardId,
+    entityId: methodId,
     metadata: { storage_path: storagePath },
   });
 
   return NextResponse.json({
     success: true,
-    card_id: cardId,
+    method_id: methodId,
     storage_path: storagePath,
     updated_at: updatedAt,
-    card_updated_at: cardUpdatedAt,
+    logo_updated_at: logoUpdatedAt,
   });
 }
 
@@ -153,30 +155,43 @@ export async function DELETE(request: Request) {
   if ("error" in auth && auth.error) return auth.error;
 
   const { supabase, userId } = auth;
-  const cardId = new URL(request.url).searchParams.get("cardId");
+  const methodId = new URL(request.url).searchParams.get("methodId");
 
-  if (!cardId || !isFeatureCardId(cardId)) {
-    return NextResponse.json({ error: "A valid feature card is required." }, { status: 400 });
+  if (!methodId || !isPaymentMethodLogoId(methodId)) {
+    return NextResponse.json({ error: "A valid payment method is required." }, { status: 400 });
   }
 
-  const existingCards = await getLandingFeatureCardsSetting();
-  const previous = existingCards[cardId];
+  const existingLogos = await getPaymentMethodLogosSetting();
+  const previous = existingLogos[methodId];
 
   if (previous?.storage_path) {
     await supabase.storage.from(LANDING_ASSETS_BUCKET).remove([previous.storage_path]);
   }
 
-  const nextCards = { ...existingCards };
-  delete nextCards[cardId];
+  const nextLogos = { ...existingLogos };
+  delete nextLogos[methodId];
 
-  const { error: settingsError } = await saveFeatureCardsSetting(supabase, userId, nextCards);
+  const { error: settingsError } = await savePaymentMethodLogosSetting(
+    supabase,
+    userId,
+    nextLogos
+  );
 
   if (settingsError) {
     return NextResponse.json(
-      { error: sanitizeErrorMessage(settingsError.message ?? "Could not remove feature card image.") },
+      {
+        error: sanitizeErrorMessage(settingsError.message ?? "Could not remove payment method logo."),
+      },
       { status: 500 }
     );
   }
 
-  return NextResponse.json({ success: true, card_id: cardId });
+  await logPlatformAdminAudit({
+    actorId: userId,
+    action: "payment_method_logo_removed",
+    entityType: "site_settings",
+    entityId: methodId,
+  });
+
+  return NextResponse.json({ success: true, method_id: methodId });
 }
