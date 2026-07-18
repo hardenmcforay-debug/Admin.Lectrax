@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { requirePlatformAdmin } from "@/lib/admin/require-platform-admin";
 import {
   LANDING_ASSETS_BUCKET,
-  BRANDING_ASSET_CACHE_CONTROL,
+  VERSIONED_ASSET_CACHE_CONTROL,
   extensionForImageMime,
   isAllowedBrandingImage,
   type BrandingImageSetting,
@@ -90,17 +90,13 @@ export async function POST(request: Request) {
   const existingLogos = await getPaymentMethodLogosSetting();
   const previous = existingLogos[methodId];
 
-  if (previous?.storage_path) {
-    await supabase.storage.from(LANDING_ASSETS_BUCKET).remove([previous.storage_path]);
-  }
-
   const buffer = Buffer.from(rawFile.bytes);
   const { error: uploadError } = await supabase.storage
     .from(LANDING_ASSETS_BUCKET)
     .upload(storagePath, buffer, {
       contentType: file.type,
       upsert: false,
-      cacheControl: BRANDING_ASSET_CACHE_CONTROL,
+      cacheControl: VERSIONED_ASSET_CACHE_CONTROL,
     });
 
   if (uploadError) {
@@ -108,6 +104,10 @@ export async function POST(request: Request) {
       { error: sanitizeErrorMessage(uploadError.message ?? "Could not upload logo.") },
       { status: 500 }
     );
+  }
+
+  if (previous?.storage_path) {
+    await supabase.storage.from(LANDING_ASSETS_BUCKET).remove([previous.storage_path]);
   }
 
   const logoUpdatedAt = new Date().toISOString();
