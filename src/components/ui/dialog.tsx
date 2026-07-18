@@ -16,7 +16,10 @@ const DialogOverlay = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Overlay
     ref={ref}
-    className={cn("fixed inset-0 z-50 bg-black/80", className)}
+    className={cn(
+      "lectrax-dialog-overlay fixed inset-0 z-[90] h-[100dvh] w-screen bg-black/55 backdrop-blur-sm",
+      className
+    )}
     {...props}
   />
 ));
@@ -28,19 +31,30 @@ const DialogContent = React.forwardRef<
 >(({ className, children, ...props }, ref) => (
   <DialogPortal>
     <DialogOverlay />
-    <DialogPrimitive.Content
-      ref={ref}
+    {/* Flex shell centers the dialog; pointer-events none so overlay clicks still dismiss. */}
+    <div
       className={cn(
-        "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 sm:rounded-lg",
-        className
+        "lectrax-dialog-shell pointer-events-none fixed inset-0 z-[100] flex items-center justify-center",
+        "px-[max(1.5rem,env(safe-area-inset-left),env(safe-area-inset-right))]",
+        "py-[max(1.5rem,env(safe-area-inset-top),env(safe-area-inset-bottom))]"
       )}
-      {...props}
     >
-      {children}
-      <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100">
-        <X className="h-4 w-4" />
-      </DialogPrimitive.Close>
-    </DialogPrimitive.Content>
+      <DialogPrimitive.Content
+        ref={ref}
+        className={cn(
+          "lectrax-dialog-content pointer-events-auto relative flex w-[95%] min-w-[min(100%,320px)] max-w-[620px] flex-col overflow-hidden border bg-background shadow-2xl sm:w-[90%] sm:rounded-lg",
+          "max-h-[min(90dvh,calc(100dvh-3rem))] gap-4 overflow-y-auto p-6",
+          className
+        )}
+        {...props}
+      >
+        {children}
+        <DialogPrimitive.Close className="absolute right-4 top-4 z-10 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100">
+          <X className="h-4 w-4" />
+          <span className="sr-only">Close</span>
+        </DialogPrimitive.Close>
+      </DialogPrimitive.Content>
+    </div>
   </DialogPortal>
 ));
 DialogContent.displayName = DialogPrimitive.Content.displayName;
