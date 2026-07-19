@@ -331,6 +331,7 @@ export async function refreshSubscriptionLifecycle(
     sub.gracePeriodEndDate &&
     new Date(sub.gracePeriodEndDate) <= now
   ) {
+    // Grace finished without renewal → premium + expired (still on Expired Plans card).
     updates.subscription_status = "expired";
 
     void logAudit({
