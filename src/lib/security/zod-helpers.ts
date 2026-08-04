@@ -31,20 +31,70 @@ export const FIELD_LIMITS = {
   SESSION_CODE: 10,
 } as const;
 
+const DEFAULT_VALIDATION_MESSAGE = "Please check your input and try again.";
+
+function isRawZodMessage(message: string): boolean {
+  return (
+    /^Invalid input:/i.test(message) ||
+    /^Invalid type:/i.test(message) ||
+    /^Expected [a-z]/i.test(message) ||
+    /nonoptional/i.test(message) ||
+    /^Required$/i.test(message) ||
+    /received (undefined|null|nan)/i.test(message)
+  );
+}
+
+function humanizeFieldName(path: PropertyKey | undefined): string | null {
+  if (typeof path !== "string" || path.length === 0) return null;
+  const spaced = path
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/[_-]+/g, " ")
+    .trim()
+    .toLowerCase();
+  return spaced.length > 0 ? spaced : null;
+}
+
+/**
+ * Convert Zod issues into production-ready copy.
+ * Never surface raw schema internals like "expected nonoptional".
+ */
+export function userFacingZodMessage(
+  error: z.ZodError | { issues?: Array<{ message?: string; path?: PropertyKey[] }> } | null | undefined,
+  fallback: string = DEFAULT_VALIDATION_MESSAGE
+): string {
+  const issue = error?.issues?.[0];
+  const message = issue?.message?.trim();
+  if (!message) return fallback;
+
+  if (!isRawZodMessage(message)) {
+    return message;
+  }
+
+  const field = humanizeFieldName(issue?.path?.[0]);
+  if (field) {
+    return `Please provide a valid ${field}.`;
+  }
+
+  return fallback;
+}
+
 export function sanitizedRequiredString(options: {
   min: number;
   max: number;
   minMessage?: string;
   maxMessage?: string;
 }) {
+  const requiredMessage = options.minMessage ?? "This field is required";
   return z
-    .string()
+    .string({ error: requiredMessage })
     .transform((value) => sanitizeTextInput(value))
     .pipe(
       z
         .string()
-        .min(options.min, options.minMessage ?? "This field is required")
-        .max(options.max, options.maxMessage ?? `Must be at most ${options.max} characters`)
+        .min(options.min, { error: requiredMessage })
+        .max(options.max, {
+          error: options.maxMessage ?? `Must be at most ${options.max} characters`,
+        })
     );
 }
 
@@ -52,17 +102,22 @@ export function optionalSanitizedString(max: number) {
   return z
     .union([z.string(), z.undefined()])
     .transform((value) => sanitizeOptionalText(value ?? ""))
-    .pipe(z.union([z.undefined(), z.string().max(max)]));
+    .pipe(
+      z.union([
+        z.undefined(),
+        z.string().max(max, { error: `Must be at most ${max} characters` }),
+      ])
+    )
+    .optional();
 }
 
 export const emailField = z
-  .string()
+  .string({ error: "Email is required" })
   .transform((value) => sanitizeTextInput(value).toLowerCase())
   .pipe(
     z
-      .string()
-      .email("Invalid email address")
-      .max(FIELD_LIMITS.EMAIL, "Email is too long")
+      .email({ error: "Invalid email address" })
+      .max(FIELD_LIMITS.EMAIL, { error: "Email is too long" })
   );
 
 export const optionalEmailField = z
@@ -76,17 +131,17 @@ export const optionalEmailField = z
     z.union([
       z.undefined(),
       z
-        .string()
-        .email("Invalid email address")
-        .max(FIELD_LIMITS.EMAIL, "Email is too long"),
+        .email({ error: "Invalid email address" })
+        .max(FIELD_LIMITS.EMAIL, { error: "Email is too long" }),
     ])
-  );
+  )
+  .optional();
 
 export const passwordField = (minLength: number, minMessage: string) =>
   z
-    .string()
-    .min(minLength, minMessage)
-    .max(FIELD_LIMITS.PASSWORD, "Password is too long");
+    .string({ error: minMessage })
+    .min(minLength, { error: minMessage })
+    .max(FIELD_LIMITS.PASSWORD, { error: "Password is too long" });
 
 export const optionalPhoneField = z
   .union([z.string(), z.undefined()])
@@ -99,27 +154,28 @@ export const optionalPhoneField = z
       z.undefined(),
       z
         .string()
-        .min(6, "Phone number is too short")
-        .max(FIELD_LIMITS.PHONE, "Phone number is too long")
-        .regex(/^[\d+\-() ]+$/, "Invalid phone number format"),
+        .min(6, { error: "Phone number is too short" })
+        .max(FIELD_LIMITS.PHONE, { error: "Phone number is too long" })
+        .regex(/^[\d+\-() ]+$/, { error: "Invalid phone number format" }),
     ])
-  );
+  )
+  .optional();
 
 export const requiredPhoneField = z
-  .string()
+  .string({ error: "Phone number is required" })
   .transform((value) => sanitizePhoneInput(value))
   .pipe(
     z
       .string()
-      .min(6, "Phone number is required")
-      .max(FIELD_LIMITS.PHONE, "Phone number is too long")
-      .regex(/^[\d+\-() ]+$/, "Invalid phone number format")
+      .min(6, { error: "Phone number is required" })
+      .max(FIELD_LIMITS.PHONE, { error: "Phone number is too long" })
+      .regex(/^[\d+\-() ]+$/, { error: "Invalid phone number format" })
   );
 
 export const normalizedRequiredPhoneField = requiredPhoneField.transform((value, ctx) => {
   if (!isValidPhoneInput(value)) {
     ctx.addIssue({
-      code: z.ZodIssueCode.custom,
+      code: "custom",
       message: "Invalid phone number format",
     });
     return z.NEVER;
@@ -129,7 +185,7 @@ export const normalizedRequiredPhoneField = requiredPhoneField.transform((value,
     return normalizePhoneNumber(value);
   } catch {
     ctx.addIssue({
-      code: z.ZodIssueCode.custom,
+      code: "custom",
       message: "Invalid phone number format",
     });
     return z.NEVER;
@@ -137,12 +193,19 @@ export const normalizedRequiredPhoneField = requiredPhoneField.transform((value,
 });
 
 export const sessionCodeField = z
-  .string()
+  .string({ error: "Session code is required" })
   .transform((value) => sanitizeSessionCode(value))
   .pipe(
     z
       .string()
-      .min(4, "Session code must be at least 4 characters")
-      .max(FIELD_LIMITS.SESSION_CODE, "Session code is too long")
-      .regex(/^[A-Z0-9]+$/, "Session code may only contain letters and numbers")
+      .min(4, { error: "Session code must be at least 4 characters" })
+      .max(FIELD_LIMITS.SESSION_CODE, { error: "Session code is too long" })
+      .regex(/^[A-Z0-9]+$/, {
+        error: "Session code may only contain letters and numbers",
+      })
   );
+
+/** RFC 9562/4122 UUID (Supabase IDs). */
+export function uuidField(errorMessage = "Invalid ID") {
+  return z.uuid({ error: errorMessage });
+}

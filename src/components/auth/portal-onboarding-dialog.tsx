@@ -6,6 +6,7 @@ import { appFetch } from "@/lib/api/client-fetch";
 import { APP_NAME } from "@/lib/constants";
 import { getPortalSettingsPath } from "@/lib/auth/signup-method";
 import { useAsyncAction } from "@/hooks/use-async-action";
+import { useHydrated } from "@/lib/hooks/use-hydrated";
 import {
   Dialog,
   DialogContent,
@@ -23,10 +24,17 @@ export function PortalOnboardingDialog({
   role: "student" | "lecturer";
   showRecoveryEmailNotice: boolean;
 }) {
-  const [open, setOpen] = useState(true);
+  const hydrated = useHydrated();
+  const [open, setOpen] = useState(false);
+  const [prevHydrated, setPrevHydrated] = useState(false);
   const { isPending, run } = useAsyncAction();
 
   const settingsPath = getPortalSettingsPath(role);
+
+  if (hydrated && !prevHydrated) {
+    setPrevHydrated(true);
+    setOpen(true);
+  }
 
   function handleAcknowledge() {
     void run(async () => {
@@ -41,6 +49,8 @@ export function PortalOnboardingDialog({
       }
     });
   }
+
+  if (!hydrated) return null;
 
   return (
     <Dialog open={open} onOpenChange={() => undefined}>

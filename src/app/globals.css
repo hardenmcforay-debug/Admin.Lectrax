@@ -234,6 +234,11 @@ body {
 
 /* PWA installed app: form-only auth (login / signup) */
 @media (display-mode: standalone), (display-mode: fullscreen), (display-mode: minimal-ui) {
+  /* Never paint the marketing site inside the installed app */
+  [data-landing-root] {
+    display: none !important;
+  }
+
   .auth-branding-panel,
   .auth-form-marketing-copy {
     display: none !important;
@@ -271,10 +276,7 @@ body {
   }
 
   .auth-back-link {
-    position: absolute;
-    top: max(1.5rem, env(safe-area-inset-top));
-    left: max(1.25rem, env(safe-area-inset-left));
-    z-index: 20;
+    display: none !important;
   }
 
   .auth-form-content {
@@ -292,6 +294,10 @@ body {
 
 html[data-pwa-standalone="true"] .auth-branding-panel,
 html[data-pwa-standalone="true"] .auth-form-marketing-copy {
+  display: none !important;
+}
+
+html[data-pwa-standalone="true"] [data-landing-root] {
   display: none !important;
 }
 
@@ -327,10 +333,7 @@ html[data-pwa-standalone="true"] .auth-pwa-form-inner {
 }
 
 html[data-pwa-standalone="true"] .auth-back-link {
-  position: absolute;
-  top: max(1.5rem, env(safe-area-inset-top));
-  left: max(1.25rem, env(safe-area-inset-left));
-  z-index: 20;
+  display: none !important;
 }
 
 html[data-pwa-standalone="true"] .auth-form-content {
