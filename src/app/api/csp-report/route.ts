@@ -4,7 +4,6 @@
  */
 
 import { NextResponse } from "next/server";
-import { resolveRequestId } from "@/lib/observability/request-id";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -73,7 +72,6 @@ function normalizeReport(payload: unknown): Record<string, string | undefined> {
 }
 
 export async function POST(request: Request) {
-  const requestId = resolveRequestId(request);
   const ip =
     request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
     request.headers.get("x-real-ip")?.trim() ||
@@ -87,9 +85,7 @@ export async function POST(request: Request) {
   }
 
   if (raw.length > MAX_REPORT_BYTES) {
-    console.warn(
-      `[csp-report] oversized body bytes=${raw.length} requestId=${requestId} ip=${ip}`
-    );
+    console.warn(`[csp-report] oversized body bytes=${raw.length} ip=${ip}`);
     return new NextResponse(null, { status: 204 });
   }
 
@@ -98,9 +94,7 @@ export async function POST(request: Request) {
     try {
       parsed = JSON.parse(raw) as unknown;
     } catch {
-      console.warn(
-        `[csp-report] invalid json requestId=${requestId} ip=${ip} bytes=${raw.length}`
-      );
+      console.warn(`[csp-report] invalid json ip=${ip} bytes=${raw.length}`);
       return new NextResponse(null, { status: 204 });
     }
   }
@@ -111,7 +105,6 @@ export async function POST(request: Request) {
     console.info(
       [
         "[csp-report]",
-        `requestId=${requestId}`,
         `ip=${ip}`,
         `documentUri=${fields.documentUri ?? "-"}`,
         `effectiveDirective=${fields.effectiveDirective ?? fields.violatedDirective ?? "-"}`,

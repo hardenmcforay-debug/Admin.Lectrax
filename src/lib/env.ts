@@ -212,18 +212,6 @@ export function validateProductionEnv(): EnvValidationResult {
     }
   }
 
-  if (!readEnv("SENTRY_DSN") && !readEnv("NEXT_PUBLIC_SENTRY_DSN")) {
-    warnings.push(
-      "Sentry DSN not set — error tracking, performance, and session replay are disabled"
-    );
-  }
-
-  if (!readEnv("UPSTASH_REDIS_REST_URL") || !readEnv("UPSTASH_REDIS_REST_TOKEN")) {
-    warnings.push(
-      "Upstash Redis not configured — rate limits fall back to per-instance memory (not safe for multi-region production)"
-    );
-  }
-
   const cspMode = readEnv("CSP_MODE")?.toLowerCase();
   if (!cspMode || cspMode === "report-only") {
     warnings.push(

@@ -15,14 +15,14 @@ function isProduction(): boolean {
   return process.env.NODE_ENV === "production";
 }
 
-/** Permissions-Policy — main app needs camera for QR attendance scanning. */
+/** Permissions-Policy — main app needs camera (QR scan) and geolocation (optional attendance GPS). */
 export function getPermissionsPolicy(options?: { allowCamera?: boolean }): string {
   const allowCamera = options?.allowCamera ?? true;
   const camera = allowCamera ? "(self)" : "()";
   return [
     `camera=${camera}`,
     "microphone=()",
-    "geolocation=()",
+    "geolocation=(self)",
     "payment=()",
     "usb=()",
     "bluetooth=()",

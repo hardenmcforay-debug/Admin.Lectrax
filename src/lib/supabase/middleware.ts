@@ -89,7 +89,11 @@ export async function updateSession(request: NextRequest) {
           headers: Record<string, string>
         ) {
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-          supabaseResponse = NextResponse.next({ request });
+          supabaseResponse = NextResponse.next({
+            request: {
+              headers: request.headers,
+            },
+          });
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, withSecureCookieOptions(options))
           );
@@ -143,11 +147,6 @@ export async function updateSession(request: NextRequest) {
     PUBLIC_ROUTES.some((r) => pathname === r || pathname.startsWith(r + "/")) ||
     PUBLIC_API_ROUTES.some((r) => pathname === r) ||
     isPublicAuthApiRoute(pathname) ||
-    pathname === "/api/health" ||
-    pathname === "/api/ready" ||
-    pathname === "/api/live" ||
-    pathname === "/monitoring" ||
-    pathname.startsWith("/monitoring/") ||
     /^\/api\/partnerships\/payments\/[^/]+\/status$/.test(pathname) ||
     pathname.startsWith("/api/webhooks") ||
     pathname.startsWith("/api/cron");
