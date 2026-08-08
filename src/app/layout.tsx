@@ -9,7 +9,9 @@ import { SiteBrandingProvider } from "@/components/layout/site-branding-provider
 import { getSiteLogoUrl } from "@/lib/landing/site-branding";
 import { PortalChromeSync } from "@/components/pwa/portal-chrome-sync";
 import { PwaProvider } from "@/components/pwa/pwa-provider";
+import { PwaBootstrapScripts } from "@/components/pwa/pwa-bootstrap-scripts";
 import { PwaHeadLinks } from "@/components/pwa/pwa-head-links";
+import { getRequestCspNonce } from "@/lib/security/get-request-nonce";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
@@ -54,6 +56,8 @@ export const metadata: Metadata = {
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const cspNonce = await getRequestCspNonce();
+
   let logoUrl: string | null = null;
   try {
     logoUrl = await getSiteLogoUrl();
@@ -65,6 +69,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang="en" className="low-data-mode" suppressHydrationWarning>
       <head>
         <PwaHeadLinks />
+        <PwaBootstrapScripts nonce={cspNonce} />
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <PwaProvider />
